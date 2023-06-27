@@ -12,6 +12,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Outcome, ScalaTestVersion}
 
 import java.util.UUID
+//import scala.collection.parallel.CollectionConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.*
 import scala.concurrent.{Await, Future}
@@ -26,8 +27,8 @@ class JoinPerformanceItSpec extends AnyFunSpec with Matchers {
       withFactory { factory =>
         val ids: Seq[ID] = getIds(factory.bookDao)
         val id: ID = ids.head
+        println(s"books:  ${ids.length}")
         val now = System.currentTimeMillis()
-        // make a call for each book (all 2000 of them)
         Await.result(factory.bookDao.getBookAuthorSummary(id), delay).getOrElse(throw new Exception("error"))
         val time = System.currentTimeMillis() - now
         logger.info(s"anorm: first single query, time: $time")
@@ -36,9 +37,9 @@ class JoinPerformanceItSpec extends AnyFunSpec with Matchers {
     it("getAuthorsForBooks concurrently") {
       withFactory { factory =>
         val ids: Seq[ID] = getIds(factory.bookDao)
+        val bookCount = ids.length
+
         val now = System.currentTimeMillis()
-        // 2000 concurrent queries
-        // make a call for each book (all 2000 of them)
         val queries: Future[Seq[BookAuthorSummary]] = Future
           .sequence(ids.map { id =>
             factory.bookDao
@@ -48,8 +49,8 @@ class JoinPerformanceItSpec extends AnyFunSpec with Matchers {
           .map(_.flatten)
         val summaries: Seq[BookAuthorSummary] = Await.result(queries, delay)
         val time = System.currentTimeMillis() - now
-        logger.info(s"anorm: concurrent for ${ids.size} queries, time: $time, avg time: ${time / ids.size}")
-        summaries.size shouldBe (bookCount * authorsPerBook)
+        logger.info(s"anorm: concurrent for ${ids.size} queries, time: $time, avg time: ${time / ids.size.toDouble}")
+        summaries.size shouldBe 40000
       }
     }
     it("getAuthorsForBooks sequentially") {
@@ -63,8 +64,8 @@ class JoinPerformanceItSpec extends AnyFunSpec with Matchers {
             .getOrElse(throw new Exception(s"could not get summary for $id"))
         val summaries: Seq[BookAuthorSummary] = ids.flatMap(query(_, factory.bookDao))
         val time = System.currentTimeMillis() - now
-        logger.info(s"anorm: sequential for ${ids.size} queries, time: $time, avg time: ${time / ids.size}")
-        summaries.size shouldBe (bookCount * authorsPerBook)
+        logger.info(s"anorm: sequential for ${ids.size} queries, time: $time, avg time: ${time / ids.size.toDouble}")
+        summaries.size shouldBe 40000
       }
     }
     it("getAuthorsForBooks single query, last") {
@@ -98,6 +99,4 @@ class JoinPerformanceItSpec extends AnyFunSpec with Matchers {
 
 object JoinPerformanceItSpec {
   val delay: FiniteDuration = 30.seconds
-  val bookCount = 2000 // based on the load scripts
-  val authorsPerBook = 4 // based on the load scripts
 }
