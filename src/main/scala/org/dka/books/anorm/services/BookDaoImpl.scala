@@ -122,8 +122,8 @@ object BookDaoImpl {
   private def bookAuthorSummaryQ(bookId: ID) = SQL("""
     select b.title, a.last_name, a.first_name, r.author_order
     from authors_books as r
-    join books as b on b .id = r.book_id
-    join authors as a on a .id = r.author_id
+    inner join books as b on b .id = r.book_id
+    inner join authors as a on a .id = r.author_id
     where r.book_id = {bookId}
     """)
     .on("bookId" -> bookId.value.toString)
